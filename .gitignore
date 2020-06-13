@@ -5,7 +5,7 @@
 *.log
 
 # Mac OS file
-*.DS_Stor
+*.DS_Store
 
 # BlueJ files
 *.ctxt
