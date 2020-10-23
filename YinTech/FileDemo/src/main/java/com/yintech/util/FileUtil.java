@@ -1,3 +1,5 @@
+package com.yintech.util;
+
 import java.io.*;
 import java.util.ArrayList;
 import java.util.List;
@@ -141,27 +143,82 @@ public class FileUtil {
         return targetFiles.size() > 0 ? targetFiles : null;
     }
 
-    public static void logFilesContainStr(String dirPath, String str) {
+    public static List<File> getAllFilesContainStrInList(String dirPath, List<String> strList, boolean isLog) {
+        List<File> findFiles = new ArrayList<>();
+
         List<File> files = FileUtil.getAllFiles(dirPath);
         if (files.size() <= 0) {
             System.out.println("不存在：" + dirPath);
         }
         for (File file : files) {
             if (isValidFile(file)) {
-                if (convertFileToString(file).contains(str)) {
-                    System.out.println(file.getAbsolutePath() + " contains: " + str);
+                String fileContent = convertFileToString(file);
+                boolean didFind = false;
+                for (String s : strList) {
+                    if (fileContent.contains(s)) {
+                        didFind = true;
+                        if (isLog) {
+                            System.out.println(file.getAbsolutePath() + " contains: " + s);
+                        }
+                    }
+                }
+                if (didFind) {
+                    findFiles.add(file);
                 }
             }
         }
+        return findFiles;
     }
 
-    public static void logFilesWithSuffix(String dirPath, String suffix) {
+    /**
+     * 获取所有包括有字符串str的文件
+     * @param dirPath 目录
+     * @param str 包含的字符串
+     * @param isLog 是否打印
+     * @return 符合条件的文件列表
+     */
+    public static List<File> getAllFilesContainStr(String dirPath, final String str, boolean isLog) {
+        return getAllFilesContainStrInList(dirPath, new ArrayList<String>() {
+            {
+                add(str);
+            }
+        }, isLog);
+    }
+
+    public static void logFilesContainStr(String dirPath, String str) {
+        getAllFilesContainStr(dirPath, str, true);
+    }
+
+    /**
+     * 修改文件后缀
+     */
+    public static File getFileWithChangedSuffix(File src, String suffix) {
+        // /Users/daliu/Desktop/job/Modules/tcyapp/Pods/YTXChat/YTXChat/Classes/EMUI/Helper/3rdParty/MWPhotoBrowser/Classes/MWGridCell.h
+        String absolutePath = src.getAbsolutePath();
+        int lastIndexOf = absolutePath.lastIndexOf(".");
+        if (lastIndexOf != -1) {
+            String newPath = absolutePath.substring(0, lastIndexOf) + suffix;
+            return new File(newPath);
+        } else {
+            return null;
+        }
+    }
+
+    public static List<File> getAllFilesWithSuffix(String dirPath, String suffix, boolean isLog) {
         List<File> files = FileUtil.getAllFiles(dirPath);
         for (File file : files) {
             if (file.getName().endsWith(suffix)) {
-                System.out.println(file.getName());
+                if (isLog) {
+                    System.out.println(file.getName());
+                }
+                files.add(file);
             }
         }
+        return files;
+    }
+
+    public static void logFilesWithSuffix(String dirPath, String suffix) {
+
     }
 
     // only .h and .m is valid

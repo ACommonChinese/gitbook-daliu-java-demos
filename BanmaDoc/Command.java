@@ -1,6 +1,6 @@
 import java.util.ArrayList;
 import java.util.List;
-
+// java BanmaDoc -name FrameworkName -version 1.0 -headers /Users/banma-1118/IdeaProjects/BanmaDoc/src/BanmaDoc.java -dest .
 class Item {
     private String name;
     private List<String> components = new ArrayList<String>();
