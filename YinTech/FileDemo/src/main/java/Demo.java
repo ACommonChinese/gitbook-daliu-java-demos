@@ -200,7 +200,7 @@ public class Demo {
 
     public static void demo2() {
         String path = "/Users/daliu/Desktop/job/Refactor_2/ytxutil/YTXUtil/Classes/Base";
-        FileUtil.logFilesWithSuffix(path, ".h");
+//        FileUtil.logFilesWithSuffix(path, ".h");
     }
 }
 

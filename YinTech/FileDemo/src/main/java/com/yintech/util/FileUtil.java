@@ -1,8 +1,10 @@
 package com.yintech.util;
 
+import com.yintech.business.replace.Console;
+
 import java.io.*;
-import java.util.ArrayList;
-import java.util.List;
+import java.nio.channels.FileChannel;
+import java.util.*;
 
 public class FileUtil {
     // file, <YTXUtil/YTXUtil.h>, <YTXBusinessUI/YTXBusinessUI.h>
@@ -74,6 +76,7 @@ public class FileUtil {
             File[] files = file.listFiles();
             for (int i = 0; i < files.length; i++) {
                 File itemFile = files[i];
+                if (itemFile.getAbsolutePath().contains("Pods/Headers")) continue; // TODO://
                 if (itemFile == null || itemFile.getName().contains(".DS_Store")) continue;
                 if (itemFile.isDirectory()) {
                     List<File> items = getAllFiles(itemFile);
@@ -204,22 +207,53 @@ public class FileUtil {
         }
     }
 
-    public static List<File> getAllFilesWithSuffix(String dirPath, String suffix, boolean isLog) {
+    /**
+     * 根据原文件获取修改后的文件名
+     * @param src 原文件
+     * @param newName 新文件名
+     * @return 修改后的文件名（只获取名字，不修改文件）
+     */
+    public static File getFileWithChangedFileName(File src, String newName) {
+        if (src == null) {
+            return null;
+        }
+        String parent = StringUtil.removeLastPathComponent(src.getAbsolutePath());
+        String newFilePath = StringUtil.appendPathComponent(parent, newName); // /xxx/yyy/BBB.h
+        File newFile = new File(newFilePath);
+        return newFile;
+    }
+
+    public static List<File> getAllFilesWithSuffixInList(String dirPath, String[] suffixArr) {
+        return getAllFilesWithSuffixInList(dirPath, suffixArr, false);
+    }
+
+    public static List<File> getAllFilesWithSuffixInList(String dirPath, String[] suffixArr, boolean isLog) {
         List<File> files = FileUtil.getAllFiles(dirPath);
+        List<File> targetFiles = new ArrayList<>();
+        List<String> suffixList = Arrays.asList(suffixArr);
         for (File file : files) {
-            if (file.getName().endsWith(suffix)) {
-                if (isLog) {
-                    System.out.println(file.getName());
+            String fileName = file.getName();
+            for (String suffix : suffixList) {
+                if (fileName.endsWith(suffix)) {
+                    if (isLog) {
+                        System.out.println(file.getName());
+                    }
+                    targetFiles.add(file);
+                    break;
                 }
-                files.add(file);
             }
         }
-        return files;
+        return targetFiles;
     }
 
-    public static void logFilesWithSuffix(String dirPath, String suffix) {
-
+    public static List<File> getAllFilesWithSuffix(String dirPath, String suffix, boolean isLog) {
+        String[] strings = new String[] { suffix };
+        return getAllFilesWithSuffixInList(dirPath, strings, isLog);
     }
+
+//    public static void logFilesWithSuffix(String dirPath, String suffix) {
+//
+//    }
 
     // only .h and .m is valid
     public static boolean isValidFile(File file) {
@@ -233,6 +267,32 @@ public class FileUtil {
         return true;
     }
 
+    /**
+     * 获取一个文件中的所有OC类或OC协议的名字
+     * @param file 文件
+     * @return 类名+协议名 集合
+     */
+    public static Set<String> getOCClassAndProtocolNamesInFile(File file) {
+        if (file == null || !file.exists()) {
+            return null;
+        }
+        List<String> stringList = convertFileToStringList(file);
+        Set<String> nameSet = new HashSet<>();
+        for (String s : stringList) {
+            if (s.trim().length() == 0) continue;
+            String name = StringUtil.getOCClassOrProtocolName(s);
+            if (StringUtil.isValidString(name)) {
+                nameSet.add(name);
+            }
+        }
+        return nameSet.size() > 0 ? nameSet : null;
+    }
+
+    /**
+     * 转换文本文件为字符串
+     * @param file 文件
+     * @return 转换后的字符串
+     */
     public static String convertFileToString(File file) {
         if (!isValidFile(file)) {
             return null;
@@ -248,6 +308,29 @@ public class FileUtil {
         }
 
         return builder.toString();
+    }
+
+    /**
+     * 转换文本文件为字符串List
+     * @param file 文件
+     * @return 转换后的字符串List
+     */
+    public static List<String> convertFileToStringList(File file) {
+        if (!isValidFile(file)) { // Only consider .h & .m
+            return null;
+        }
+        List<String> stringList = new ArrayList<>();
+        StringBuilder builder = new StringBuilder();
+        try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
+            String str = null;
+            while ((str = reader.readLine()) != null) {
+                stringList.add(str + "\n");
+                // builder.append(str + "\n");
+            }
+        } catch (IOException io) {
+            io.printStackTrace();
+        }
+        return stringList;
     }
 
     public static boolean hasStringContent(File file, String targetStr) {
@@ -273,5 +356,71 @@ public class FileUtil {
             throw new RuntimeException("file invalud");
         }
         return MD5Util.getMD5(file1).equals(MD5Util.getMD5(file2));
+    }
+
+    public static boolean rename(File oldFile, File newFile) {
+        if (oldFile.exists() && oldFile.isFile()) {
+            return oldFile.renameTo(newFile);
+        }
+        return false;
+    }
+
+    /**
+     * 文件拷贝
+     * @param source 源文件
+     * @param dest 目标文件
+     */
+    public static void copy(File source, File dest) {
+        FileChannel inputChannel = null;
+        FileChannel outputChannel = null;
+        try {
+            inputChannel = new FileInputStream(source).getChannel();
+            outputChannel = new FileOutputStream(dest).getChannel();
+            long size = outputChannel.transferFrom(inputChannel, 0, inputChannel.size());
+            if (size > 0) {
+                System.out.println("From: " + source.getAbsolutePath());
+                System.out.println("To: ----> " + dest.getAbsolutePath());
+            }
+        } catch (IOException e) {
+            System.out.println("copy file fail: " + source.getAbsolutePath() + " --> " + dest.getAbsolutePath());
+            e.printStackTrace();
+        } finally {
+            try {
+                inputChannel.close();
+                outputChannel.close();
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    /**
+     * 往文件中写入字符串
+     * @param file 文件
+     * @param text 字符串
+     * @Note 如果文件不存在，则创建
+     */
+    public static void writeString(File file, String text) throws IOException {
+        if (file == null) return;
+
+        File f = file;
+        if (!f.exists()) {
+            Console.logLine("File not exist, create: " + f.getAbsolutePath());
+            f.createNewFile();
+        }
+        FileWriter writer = new FileWriter(f);
+        writer.write(text);
+        writer.flush();
+        writer.close();
+    }
+
+    /**
+     * 打印List中所有文件绝对路径
+     * @param files 文件List
+     */
+    public static void logFileList(List<File> files) {
+        for (File file : files) {
+            System.out.println(file.getAbsolutePath());
+        }
     }
 }
